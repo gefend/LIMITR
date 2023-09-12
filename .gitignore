@@ -131,3 +131,6 @@ dmypy.json
 data/
 
 *.ckpt
+
+LIMITR/models/bioclinicalbert
+LIMITR/models/bioclinicalbert_tokenizer
