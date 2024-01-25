@@ -1,6 +1,6 @@
 experiment_name: 'frontal_extlosscapimg_0.05localint_masknorm_txt_SAFimg'
 phase: 'pretrain'
-my_phase: 'test'
+my_phase: 'train'
 
 lightning:
     trainer:
@@ -25,11 +25,11 @@ lightning:
     logger:
         logger_type: 'WandbLogger'
         save_dir: './data/'
-        project: 'gloria_v2'
+        project: 'limitr'
 
 model:
     norm: false
-    gloria:
+    limitr:
         local_ext_loss_weight: 1.0
         local_int_loss_weight: 0.05
         global_loss_weight: 0
@@ -38,7 +38,7 @@ model:
         temp3: 10.0
         lateral: False
         pe: False
-        img_attn: True
+        img_attn: False
         cap_attn: True
         int_w_method: 'SAF'
     vision:

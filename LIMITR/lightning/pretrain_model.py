@@ -17,12 +17,12 @@ class PretrainModel(LightningModule):
 
         self.cfg = cfg
         self.save_hyperparameters(self.cfg)
-        self.gloria = builder.build_gloria_model(cfg)
+        self.limitr = builder.build_model(cfg)
         self.lr = cfg.lightning.trainer.lr
         self.dm = None
 
     def configure_optimizers(self):
-        optimizer = builder.build_optimizer(self.cfg, self.lr, self.gloria)
+        optimizer = builder.build_optimizer(self.cfg, self.lr, self.limitr)
         scheduler = builder.build_scheduler(self.cfg, optimizer, self.dm)
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
@@ -125,8 +125,8 @@ class PretrainModel(LightningModule):
                     # loss,_,_,sim = self.gloria.calc_loss(
                     #     img_emb_l, img_emb_g, text_emb_l, text_emb_g, sents
                     # )
-                    img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.gloria(new_batch)
-                    loss, _,_,_, sim,_,_,attn_maps = self.gloria.calc_loss(
+                    img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.limitr(new_batch)
+                    loss, _,_,_, sim,_,_,attn_maps = self.limitr.calc_loss(
                         img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
                     )
 
@@ -222,8 +222,8 @@ class PretrainModel(LightningModule):
         """Similar to traning step"""
 
         #img_emb_l, img_emb_g, text_emb_l, text_emb_g, sents = self.gloria(batch)
-        img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.gloria(batch)
-        loss,local_ext_loss,local_int_loss,global_loss,_,_,_,_ = self.gloria.calc_loss(
+        img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.limitr(batch)
+        loss,local_ext_loss,local_int_loss,global_loss,_,_,_,_ = self.limitr.calc_loss(
             img_emb_l_l, img_emb_l_f,ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
         )
 

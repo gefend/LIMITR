@@ -12,7 +12,7 @@ import torch.utils.data as data
 from PIL import Image
 from nltk.tokenize import RegexpTokenizer
 from transformers import AutoTokenizer, BertTokenizer
-from gloria.constants import *
+from LIMITR.constants import *
 from tqdm import tqdm
 
 

@@ -20,9 +20,9 @@ def l2norm(X, dim=-1, eps=1e-8):
     X = torch.div(X, norm)
     return X
 
-class GLoRIA(nn.Module):
+class LIMITR(nn.Module):
     def __init__(self, cfg):
-        super(GLoRIA, self).__init__()
+        super(LIMITR, self).__init__()
 
         self.cfg = cfg
         self.text_encoder = builder.build_text_model(cfg)
@@ -31,23 +31,23 @@ class GLoRIA(nn.Module):
         self.img_encoder_l = builder.build_img_model(cfg)
         # self.img_encoder = builder.build_img_model(cfg)
 
-        self.local_loss = loss.gloria_loss.local_loss
-        self.global_loss = loss.gloria_loss.global_loss
+        self.local_loss = loss.LIMITR_loss.local_loss
+        self.global_loss = loss.LIMITR_loss.global_loss
 
-        if cfg.model.gloria.local_int_loss_weight > 0:
-            self.local_int_loss = loss.gloria_loss.local_int_loss
+        if cfg.model.limitr.local_int_loss_weight > 0:
+            self.local_int_loss = loss.LIMITR_loss.local_int_loss
 
-        self.local_loss_weight = self.cfg.model.gloria.local_loss_weight
-        self.global_loss_weight = self.cfg.model.gloria.global_loss_weight
+        self.local_loss_weight = self.cfg.model.limitr.local_loss_weight
+        self.global_loss_weight = self.cfg.model.limitr.global_loss_weight
 
-        self.temp1 = self.cfg.model.gloria.temp1
-        self.temp2 = self.cfg.model.gloria.temp2
-        self.temp3 = self.cfg.model.gloria.temp3
+        self.temp1 = self.cfg.model.limitr.temp1
+        self.temp2 = self.cfg.model.limitr.temp2
+        self.temp3 = self.cfg.model.limitr.temp3
         self.batch_size = self.cfg.train.batch_size
 
         #self.tokenizer = AutoTokenizer.from_pretrained(self.cfg.model.text.bert_type)
         #self.tokenizer = BertTokenizer.from_pretrained(self.cfg.model.text.bert_type)
-        self.tokenizer = BertTokenizer.from_pretrained("/home/gefen/Documents/gloria-main/gloria/models/bioclinicalbert_tokenizer")
+        self.tokenizer = BertTokenizer.from_pretrained("/home/gefen/Documents/LIMITR-main/LIMITR/models/bioclinicalbert_tokenizer")
         self.ixtoword = {v: k for k, v in self.tokenizer.get_vocab().items()}
 
         # self.attn_model_cap = nn.MultiheadAttention(self.cfg.model.text.embedding_dim,num_heads=1)
@@ -74,7 +74,7 @@ class GLoRIA(nn.Module):
         img_emb_g_f, img_emb_l_f = self.img_encoder_f.generate_embeddings(
             img_feat_g_f, img_emb_l_f
         )
-        if self.cfg.model.gloria.lateral:
+        if self.cfg.model.limitr.lateral:
             img_lateral_global = torch.zeros(img_emb_g_f.shape,dtype=img_emb_g_f.dtype).cuda()
             #img_feats_lateral_all = torch.zeros(img_emb_l_f.shape,dtype=img_emb_l_f.dtype).cuda()
             tmp_remove = imgs_l[:, 0, 0, 0]
@@ -166,7 +166,7 @@ class GLoRIA(nn.Module):
         batch_size = img_features_f.shape[0]
 
         img_features_f = img_features_f.type(words_emb.dtype)
-        if self.cfg.model.gloria.lateral:
+        if self.cfg.model.limitr.lateral:
             img_features_l = img_features_l.type(words_emb.dtype)
             img_feats_lateral_all = torch.zeros(img_features_f.shape, dtype=words_emb.dtype).cuda()
             img_feats_lateral_all[~ind_lateral] = img_features_l
@@ -178,7 +178,7 @@ class GLoRIA(nn.Module):
             img_features_f = img_features_f.view(img_features_f.size(0), -1, sourceL)
             img_features_l = img_features_l.view(img_features_l.size(0), -1, sourceL)
             #TODO original pe
-            if self.cfg.model.gloria.pe:
+            if self.cfg.model.limitr.pe:
                 pe = self.posemb_sincos_2d(num_local_regions=361).cuda()
                 img_features_f = img_features_f + pe.T
                 img_feats_lateral_all[~ind_lateral] = img_features_l + pe.T
@@ -189,7 +189,7 @@ class GLoRIA(nn.Module):
             img_features_f = img_features_f.view(img_features_f.size(0), -1, sourceL)
             img_features = img_features_f
             # TODO original pe
-            if self.cfg.model.gloria.pe:
+            if self.cfg.model.limitr.pe:
                 pe = self.posemb_sincos_2d().cuda()
                 img_features = img_features + pe.T
 
@@ -206,7 +206,7 @@ class GLoRIA(nn.Module):
             word = words_emb[i, :, :words_num].unsqueeze(0).contiguous()  # [1, 768, 25]
             word = word.repeat(batch_size, 1, 1)  # [48, 768, 25]
             context = img_features  # [48, 768, 19, 19]
-            if self.cfg.model.gloria.cap_attn:
+            if self.cfg.model.limitr.cap_attn:
                 weiContext, attn = self.attention_fn(
                     word, context, temp1, context_img=True
                 )  # [48, 768, 25], [48, 25, 19, 19]
@@ -223,7 +223,7 @@ class GLoRIA(nn.Module):
                 sim_i_cap = self.sigmoid(self.sim_eval_w_cap(sim_vec_cap))
                 similarities_cap.append(sim_i_cap)
             #seperate for frontal and lateral images
-            if self.cfg.model.gloria.img_attn:
+            if self.cfg.model.limitr.img_attn:
                 weiContext_img, _ = self.attention_fn(
                     context, word, temp1, context_img=False
                 )
@@ -234,7 +234,7 @@ class GLoRIA(nn.Module):
                 sim_loc_img_f = torch.mul(weiContext_img_f, img_features_f)
                 sim_loc_img_f = l2norm(sim_loc_img_f, dim=-1)
 
-                if self.cfg.model.gloria.lateral:
+                if self.cfg.model.limitr.lateral:
                     weiContext_img_l = weiContext_img[~ind_lateral, :, 361:].transpose(1, 2).contiguous()
                     if weiContext_img_l.shape != img_features_l.shape:
                         img_features_l = img_features_l.transpose(1, 2).contiguous()
@@ -262,11 +262,11 @@ class GLoRIA(nn.Module):
                     sim_vec_f, sim_w_img = self.SAF_module(sim_loc_img_f, sim_ave_f)
                     sim_i_img = self.sigmoid(self.sim_eval_w_img(sim_vec_f))
                     similarities_img.append(sim_i_img)
-        if self.cfg.model.gloria.cap_attn:
+        if self.cfg.model.limitr.cap_attn:
             similarities_cap = torch.cat(similarities_cap, 1)
         else:
             similarities_cap = torch.zeros(1)
-        if self.cfg.model.gloria.img_attn:
+        if self.cfg.model.limitr.img_attn:
             similarities_img = torch.cat(similarities_img, 1)
         else:
             similarities_img = torch.zeros(1)
@@ -375,7 +375,7 @@ class GLoRIA(nn.Module):
         #         cap_weights.append(atten_weight.clone())
         #     cap_weights = torch.stack(cap_weights)
         # cap_weights /= cap_weights.sum(dim=1, keepdims=True)
-        if self.cfg.model.gloria.local_int_loss_weight>0:
+        if self.cfg.model.limitr.local_int_loss_weight>0:
             local_int_loss = self.local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l.permute((0, 2, 1)),sents,self.cfg,self.SAF_module,local_temperature = 0.1)
         else:
             local_int_loss = 0
@@ -389,26 +389,26 @@ class GLoRIA(nn.Module):
     def calc_loss(self, img_emb_l_l, img_emb_l_f,ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents):
         loss = 0
 
-        if ((self.cfg.model.gloria.local_ext_loss_weight>0) or (self.cfg.model.gloria.local_int_loss_weight>0)):
+        if ((self.cfg.model.limitr.local_ext_loss_weight>0) or (self.cfg.model.limitr.local_int_loss_weight>0)):
             l_loss0, l_loss1,local_int_loss,sim_loc,attn_maps = self._calc_local_loss(
                 img_emb_l_l,img_emb_l_f,ind_lateral, text_emb_l, sents
             )
             local_ext_loss = (l_loss0 + l_loss1)
-            loss += local_ext_loss * self.cfg.model.gloria.local_ext_loss_weight
-            loss += local_int_loss* self.cfg.model.gloria.local_int_loss_weight
+            loss += local_ext_loss * self.cfg.model.limitr.local_ext_loss_weight
+            loss += local_int_loss* self.cfg.model.limitr.local_int_loss_weight
 
 
-        if self.cfg.model.gloria.global_loss_weight>0:
+        if self.cfg.model.limitr.global_loss_weight>0:
             g_loss0, g_loss1,sim_glo = self._calc_global_loss(img_emb_g, text_emb_g)
             global_loss = (g_loss0 + g_loss1)
-            loss += global_loss * self.cfg.model.gloria.global_loss_weight
+            loss += global_loss * self.cfg.model.limitr.global_loss_weight
         else:
             sim_glo= torch.zeros_like(sim_loc)
             global_loss=0
         #norm = lambda x: (x - x.mean(axis=0)) / (x.std(axis=0))
         #sim_glo = torch.clamp(sim_glo, min=0)
         similarities = torch.stack(
-            [self.cfg.model.gloria.local_ext_loss_weight*sim_loc, self.cfg.model.gloria.global_loss_weight*sim_glo]
+            [self.cfg.model.limitr.local_ext_loss_weight*sim_loc, self.cfg.model.limitr.global_loss_weight*sim_glo]
         )
 
 
@@ -450,7 +450,7 @@ class GLoRIA(nn.Module):
             word = word.repeat(batch_size, 1, 1)  # [48, 768, 25]
             context = img_emb_l  # [48, 768, 19, 19]
 
-            weiContext, attn = loss.gloria_loss.attention_fn(
+            weiContext, attn = loss.LIMITR_loss.attention_fn(
                 word, context, 4.0
             )  # [48, 768, 25], [48, 25, 19, 19]
 
@@ -460,7 +460,7 @@ class GLoRIA(nn.Module):
             word = word.view(batch_size * words_num, -1)  # [1200, 768]
             weiContext = weiContext.view(batch_size * words_num, -1)  # [1200, 768]
             #
-            row_sim = loss.gloria_loss.cosine_similarity(word, weiContext)
+            row_sim = loss.LIMITR_loss.cosine_similarity(word, weiContext)
             row_sim = row_sim.view(batch_size, words_num)  # [48, 25]
 
             row_sim.mul_(5.0).exp_()

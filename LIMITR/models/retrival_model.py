@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from .. import utils
-from ..loss.gloria_loss import attention_fn, cosine_similarity
+from ..loss.LIMITR_loss import attention_fn, cosine_similarity
 from sklearn import metrics
 
 

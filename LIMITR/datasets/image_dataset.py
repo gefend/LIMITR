@@ -9,7 +9,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from albumentations import ShiftScaleRotate, Normalize, Resize, Compose
 from albumentations.pytorch import ToTensor
-from gloria.constants import *
+from LIMITR.constants import *
 
 
 class ImageBaseDataset(Dataset):

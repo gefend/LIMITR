@@ -24,17 +24,11 @@ def build_lightning_model(cfg, dm):
     return module
 
 
-def build_gloria_model(cfg):
-    gloria_model = models.gloria_model.GLoRIA(cfg)
-    return gloria_model
+def build_model(cfg):
+    model = models.LIMITR_model.LIMITR(cfg)
+    return model
 
-
-def build_gloria_model_original(cfg):
-    gloria_model = models.gloria_model_original.GLoRIA(cfg)
-    return gloria_model
-
-
-def build_gloria_from_ckpt(ckpt):
+def build_model_from_ckpt(ckpt):
 
     ckpt = torch.load(ckpt)
     cfg = ckpt["hyper_parameters"]
@@ -42,14 +36,14 @@ def build_gloria_from_ckpt(ckpt):
 
     fixed_ckpt_dict = {}
     for k, v in ckpt_dict.items():
-        new_key = k.split("gloria.")[-1]
+        new_key = k.split("limitr.")[-1]
         fixed_ckpt_dict[new_key] = v
     ckpt_dict = fixed_ckpt_dict
 
-    gloria_model = build_gloria_model(cfg)
-    gloria_model.load_state_dict(ckpt_dict)
+    model = build_model(cfg)
+    model.load_state_dict(ckpt_dict)
 
-    return gloria_model
+    return model
 
 
 def build_img_model(cfg):

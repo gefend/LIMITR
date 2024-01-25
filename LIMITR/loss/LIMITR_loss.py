@@ -8,7 +8,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch.autograd import Variable
 from einops import rearrange
-# from gloria.models.gloria_model import TextSA
+# from LIMITR.models.LIMITR_model import TextSA
 
 def l2norm(X, dim=-1, eps=1e-8):
     """L2-normalize columns of X"""
@@ -207,7 +207,7 @@ def local_loss(
     #     #TODO-gloria
     #
     # similarities = torch.cat(similarities, 1)  #
-    if cfg.model.gloria.cap_attn:
+    if cfg.model.limitr.cap_attn:
         batch_size = similarities_cap.shape[0]
         similarities_cap = similarities_cap * temp3
         similarities1_cap = similarities_cap.transpose(0, 1)  # [48, 48]
@@ -220,7 +220,7 @@ def local_loss(
         loss0_cap = 0
         loss1_cap = 0
     #TODO- local img attn
-    if cfg.model.gloria.img_attn:
+    if cfg.model.limitr.img_attn:
         batch_size = similarities_img.shape[0]
         similarities_img = similarities_img * temp3
         similarities1_img = similarities_img.transpose(0, 1)  # [48, 48]
@@ -244,12 +244,12 @@ def local_loss(
 #     img_emb_l_f = img_emb_l_f.view(img_emb_l_f.size(0), -1, sourceL)
 #     bz = img_emb_l_f.size(0)
 #
-#     if cfg.model.gloria.int_w_method == 'uniform':
+#     if cfg.model.limitr.int_w_method == 'uniform':
 #         cap_weights = torch.ones(bz, text_emb_l.size(1)).type_as(text_emb_l)/text_emb_l.size(1)
 #         img_weights = torch.ones(bz, img_emb_l_f.size(1)).type_as(img_emb_l_f) / img_emb_l_f.size(1)
-#         if cfg.model.gloria.lateral:
+#         if cfg.model.limitr.lateral:
 #             img_weights_l = torch.ones(bz, img_emb_l_l.size(1)).type_as(img_emb_l_l) / img_emb_l_l.size(1)
-#     elif cfg.model.gloria.int_w_method == 'SAF':
+#     elif cfg.model.limitr.int_w_method == 'SAF':
 #         cap_weights = sim_w_cap
 #         img_weights = sim_w_img
 #     img_emb_l_f=img_emb_l_f.type_as(text_emb_l)
@@ -336,7 +336,7 @@ def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local
     # mask_n = mask_new.unsqueeze(axis=2)
     # mask_n = mask_n.repeat(1, 1, 768)
 
-    # if cfg.model.gloria.int_w_method == 'SAF':
+    # if cfg.model.limitr.int_w_method == 'SAF':
     #     SAF_module = TextSA(cfg.model.text.embedding_dim, 0.4)
 
     bz = img_emb_l_f.size(0)
@@ -344,21 +344,21 @@ def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local
     sourceL = ih * iw
     img_emb_l_f = img_emb_l_f.view(img_emb_l_f.size(0), -1, sourceL)
 
-    if cfg.model.gloria.int_w_method == 'uniform':
+    if cfg.model.limitr.int_w_method == 'uniform':
         #cap_weights = torch.ones(bz, text_emb_l.size(1)).type_as(text_emb_l)/text_emb_l.size(1)
         cap_mask =~ mask
         y = cap_mask.sum(axis=1)
         norm_cap = cap_mask.T/y
         cap_weights = norm_cap.T
         img_weights = torch.ones(bz, img_emb_l_f.size(2)).type_as(img_emb_l_f) / img_emb_l_f.size(2)
-        if cfg.model.gloria.lateral:
+        if cfg.model.limitr.lateral:
             img_weights_l = torch.ones(bz, img_emb_l_l.size(1)).type_as(img_emb_l_l) / img_emb_l_l.size(1)
 
     #cap_weights = torch.zeros(bz, text_emb_l.size(1)).type_as(text_emb_l)
     #weiContext = torch.zeros_like(text_emb_l)
     weiContext, attn = attention_fn(
         text_emb_l, img_emb_l_f, 4.0, context_img=True, use_mask=False, mask=0)
-    if cfg.model.gloria.int_w_method == 'SAF':
+    if cfg.model.limitr.int_w_method == 'SAF':
         cap_mask = ~ mask
         y = cap_mask.sum(axis=1)
         norm_cap = cap_mask.T / y
@@ -366,7 +366,7 @@ def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local
     # for i in range(bz):
     #     n_word = torch.nonzero(text_emb_l).shape[0]
     #     weiContext_i = F.normalize(weiContext[i,:n_word,:], dim=-1)
-    #     if cfg.model.gloria.int_w_method == 'SAF':
+    #     if cfg.model.limitr.int_w_method == 'SAF':
 
             # sim_loc_cap = torch.mul(weiContext_i.permute(1, 0), text_emb_l[i, :n_word, :])
             # sim_loc_cap = l2norm(sim_loc_cap, dim=-1)
@@ -393,7 +393,7 @@ def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local
 
     # if weiContext_img.shape !=  img_emb_l_f.shape:
     #     img_emb_l_f =  img_emb_l_f.transpose(1, 2).contiguous()
-    if cfg.model.gloria.int_w_method == 'SAF':
+    if cfg.model.limitr.int_w_method == 'SAF':
         sim_loc_img = torch.mul(weiContext_img,  img_emb_l_f)
         sim_loc_img = l2norm(sim_loc_img, dim=-1)
         sim_loc_img = sim_loc_img.transpose(1, 2).contiguous()

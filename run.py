@@ -1,6 +1,6 @@
 import argparse
 import torch
-import gloria
+import LIMITR
 import datetime
 import os
 import numpy as np
@@ -59,13 +59,11 @@ def get_parser():
 
 def main(cfg, args):
     my_phase = cfg.my_phase
-    # train = False
-    # test = True
     # get datamodule
-    dm = gloria.builder.build_data_module(cfg)
+    dm = LIMITR.builder.build_data_module(cfg)
 
     # define lightning module
-    model = gloria.builder.build_lightning_model(cfg, dm)
+    model = LIMITR.builder.build_lightning_model(cfg, dm)
 
     # callbacks
     callbacks = [LearningRateMonitor(logging_interval="step")]
