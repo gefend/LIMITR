@@ -2,50 +2,19 @@ from pathlib import Path
 # #############################################
 # MIMIC-CXR-JPG constants
 # #############################################
-#MIMIC_CXR_DATA_DIR = DATA_BASE_DIR / "raw/physionet.org/files/mimic-cxr-jpg/2.0.0"
-DATA_BASE_DIR= Path('/home/gefen/Documents/physionet.org/files/mimic-cxr-jpg/2.0.0')
-MIMIC_CXR_DATA_DIR = DATA_BASE_DIR
-# MIMIC_CXR_TRAIN_TXT = MIMIC_CXR_DATA_DIR / "train.txt"
-# MIMIC_CXR_VALID_TXT = MIMIC_CXR_DATA_DIR / "test.txt"
-MIMIC_CXR_CHEXPERT_CSV = MIMIC_CXR_DATA_DIR / "mimic-cxr-2.0.0-chexpert.csv"
-MIMIC_CXR_META_CSV = MIMIC_CXR_DATA_DIR / "mimic-cxr-2.0.0-metadata.csv"
-MIMIC_CXR_TEXT_CSV = MIMIC_CXR_DATA_DIR / "mimic_cxr_sectioned.csv"
-MIMIC_CXR_SPLIT_CSV = MIMIC_CXR_DATA_DIR / "mimic-cxr-2.0.0-split.csv"
+DATA_BASE_DIR = Path("/home/gefen/Documents")
+MIMIC_CXR_DATA_DIR = Path('/home/gefen/Documents/physionet.org/files/mimic-cxr-jpg/2.0.0')
 # Created csv
-MIMIC_CXR_TRAIN_CSV = MIMIC_CXR_DATA_DIR / "train_split_frontal_lateral.csv"
-MIMIC_CXR_VALID_CSV = MIMIC_CXR_DATA_DIR / "valid_split_frontal_lateral.csv"
-MIMIC_CXR_TEST_CSV = MIMIC_CXR_DATA_DIR / "test_split_frontal_lateral.csv"
-MIMIC_CXR_TRAIN_CSV_IMP = MIMIC_CXR_DATA_DIR / "train_imp.csv"
-MIMIC_CXR_VALID_CSV_IMP = MIMIC_CXR_DATA_DIR / "val_imp.csv"
-MIMIC_CXR_TEST_CSV_IMP = MIMIC_CXR_DATA_DIR / "test_imp.csv"
-MIMIC_CXR_MASTER_CSV = MIMIC_CXR_DATA_DIR / "master.csv"
+MIMIC_CXR_TRAIN_CSV = MIMIC_CXR_DATA_DIR / "splits/train_split.csv"
+MIMIC_CXR_VALID_CSV = MIMIC_CXR_DATA_DIR / "splits/valid_split.csv"
+MIMIC_CXR_TEST_CSV = MIMIC_CXR_DATA_DIR / "splits/test_split.csv"
 MIMIC_CXR_VIEW_COL = "ViewPosition"
-MIMIC_CXR_PATH_COL_F = "Path_frontal" #"Path_frontal"
+MIMIC_CXR_PATH_COL_F = "Path_frontal"
 MIMIC_CXR_PATH_COL_L = "Path_lateral"
 MIMIC_CXR_SPLIT_COL = "split"
 MIMIC_CXR_REPORT_COL = "Report"
 MIMIC_CXR_PATH_COL = "Path"
 
-# CheXpert constants
-CHEXPERT_DATA_DIR = Path("/home/mars/git/embeddingx_v2/data/chexpert/CheXpert-v1.0")
-CHEXPERT_ORIGINAL_TRAIN_CSV = CHEXPERT_DATA_DIR / "train.csv"
-CHEXPERT_TRAIN_CSV = CHEXPERT_DATA_DIR / "train_split.csv"  # train split from train.csv
-CHEXPERT_VALID_CSV = CHEXPERT_DATA_DIR / "valid_split.csv"  # valid split from train.csv
-CHEXPERT_TEST_CSV = (
-    CHEXPERT_DATA_DIR / "valid.csv"
-)  # using validation set as test set (test set label hidden)
-CHEXPERT_MASTER_CSV = (
-    CHEXPERT_DATA_DIR / "master_updated.csv"
-)  # contains patient information, not PHI conplient
-CHEXPERT_TRAIN_DIR = CHEXPERT_DATA_DIR / "train"
-CHEXPERT_TEST_DIR = CHEXPERT_DATA_DIR / "valid"
-CHEXPERT_5x200 = CHEXPERT_DATA_DIR / "chexpert_8x200.csv"
-
-CHEXPERT_VALID_NUM = 5000
-CHEXPERT_VIEW_COL = "Frontal/Lateral"
-CHEXPERT_PATH_COL = "Path"
-CHEXPERT_SPLIT_COL = "Split"
-CHEXPERT_REPORT_COL = "Report Impression"
 
 CHEXPERT_TASKS = [
     "No Finding",
