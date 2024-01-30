@@ -58,8 +58,6 @@ data:
     dataset: chexpert
     text: 
       word_num: 97
-      captions_per_image: 5
-      full_report: false
     image:
         imsize: 256
     data_type: mimic
@@ -73,8 +71,6 @@ train:
     update_interval: 1000
     batch_size: 48
     num_workers: 18
-    nvis: 8
-    rand_vis: false 
     optimizer: 
         name: 'Adam'
         weight_decay: 1e-6
