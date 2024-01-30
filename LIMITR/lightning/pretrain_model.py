@@ -28,20 +28,10 @@ class PretrainModel(LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss, sents = self.shared_step(batch, "train")
-
-        # get attention map image
-        # if self.cfg.train.update_interval is not None:
-        #     if batch_idx % self.cfg.train.update_interval == 0:
-        #         imgs = batch["imgs"].cpu()
-        #         self.gloria.plot_attn_maps(
-        #             attn_maps, imgs, sents, self.current_epoch, batch_idx
-        #         )
         return loss
 
     def validation_step(self, batch, batch_idx):
         scores,loss = self.shard_attn_scores(batch)
-
-        #scores = scores.detach().cpu().numpy()
         r, _ = self.i2t(scores, return_ranks=True)
         ri, _ = self.t2i(scores, return_ranks=True)
         r_sum = r[0] + r[1] + r[2] + ri[0] + ri[1] + ri[2]
@@ -59,13 +49,10 @@ class PretrainModel(LightningModule):
                  on_epoch=True)
         self.log("r10_t2i", ri[2], on_step=False, prog_bar=True,
                  on_epoch=True)
-
         return loss
 
     def test_step(self, batch, batch_idx):
         scores,loss = self.shard_attn_scores(batch)
-
-        #scores = scores.detach().cpu().numpy()
         r, _ = self.i2t(scores, return_ranks=True)
         ri, _ = self.t2i(scores, return_ranks=True)
         r_sum = r[0] + r[1] + r[2] + ri[0] + ri[1] + ri[2]
@@ -83,12 +70,7 @@ class PretrainModel(LightningModule):
                  on_epoch=True)
         self.log("r10_t2i_test", ri[2], on_step=False, prog_bar=True,
                  on_epoch=True)
-
         return r_sum
-
-    # def validation_step(self, batch, batch_idx):
-    #     loss, _, _ = self.shared_step(batch, "val")
-    #     return loss
 
     def shard_attn_scores(self,batch, shard_size=100):
         n_examples = len(batch['imgs_F'])
@@ -104,16 +86,6 @@ class PretrainModel(LightningModule):
                 ca_start, ca_end = shard_size * j, min(shard_size * (j + 1), n_examples)
 
                 with torch.no_grad():
-                    # im = torch.from_numpy(img_embs_F[im_start:im_end]).float().cuda()
-                    # ca = torch.from_numpy(cap_embs[ca_start:ca_end]).float().cuda()
-                    # sent_feat, _, _, _ = self.text_encoder(
-                    #     batch["caption_ids"][ca_start:ca_end], batch["attention_mask"][ca_start:ca_end], batch["token_type_ids"][ca_start:ca_end])
-                    # sent_emb = self.text_encoder.global_embed(sent_feat)
-                    # sent_emb = F.normalize(sent_emb, dim=1)
-                    # img_feat, _ = self.img_encoder(batch["imgs"][im_start:im_end])
-                    # img_emb = self.img_encoder.global_embed(img_feat)
-                    # img_emb = F.normalize(img_emb, dim=1)
-                    # sim = self.info_nce_loss(img_emb, sent_emb, self.hparams.softmax_temperature)
                     new_batch = {
                         "caption_ids": batch["caption_ids"][ca_start:ca_end],
                         "attention_mask": batch["attention_mask"][ca_start:ca_end],
@@ -121,10 +93,6 @@ class PretrainModel(LightningModule):
                         "imgs_F": batch["imgs_F"][im_start:im_end],
                         "imgs_L": batch["imgs_L"][im_start:im_end]
                     }
-                    # img_emb_l, img_emb_g, text_emb_l, text_emb_g, sents = self.gloria(new_batch)
-                    # loss,_,_,sim = self.gloria.calc_loss(
-                    #     img_emb_l, img_emb_g, text_emb_l, text_emb_g, sents
-                    # )
                     img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.limitr(new_batch)
                     loss, _,_,_, sim,_,_,attn_maps = self.limitr.calc_loss(
                         img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
@@ -134,7 +102,7 @@ class PretrainModel(LightningModule):
                 total_loss += loss
 
         sys.stdout.write('\n')
-        return sims,total_loss/100
+        return sims, total_loss/shard_size
 
     @staticmethod
     def i2t(sims, return_ranks=False):
@@ -145,9 +113,6 @@ class PretrainModel(LightningModule):
         CapLens: (N) array of caption lengths
         sims: (N, N) matrix of similarity im-cap
         """
-        # np.save('sims_chexpert8X200', sims)
-        # print('sims_saved')
-
         npts = sims.shape[0]
         ranks = np.zeros(npts)
         top1 = np.zeros(npts)
@@ -156,13 +121,6 @@ class PretrainModel(LightningModule):
 
         for index in range(npts):
             inds = np.argsort(-1 * sims[index])
-
-            # Score
-            rank = 1e20
-            # for i in range(5 * index, 5 * index + 5, 1):
-            # tmp = np.where(inds == i)[0][0]
-            # if tmp < rank:
-            #     rank = tmp
             tmp = np.where(inds == index)[0][0]
             ranks[index] = tmp
             top1[index] = inds[0]
@@ -221,7 +179,6 @@ class PretrainModel(LightningModule):
     def shared_step(self, batch, split):
         """Similar to traning step"""
 
-        #img_emb_l, img_emb_g, text_emb_l, text_emb_g, sents = self.gloria(batch)
         img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.limitr(batch)
         loss,local_ext_loss,local_int_loss,global_loss,_,_,_,_ = self.limitr.calc_loss(
             img_emb_l_l, img_emb_l_f,ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
