@@ -1,6 +1,5 @@
 experiment_name: 'frontal_extlosscapimg_0.05localint_masknorm_txt_SAFimg'
 phase: 'pretrain'
-my_phase: 'train'
 
 lightning:
     trainer:

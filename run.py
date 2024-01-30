@@ -40,25 +40,15 @@ def get_parser():
         "By default run.py trains a model based on config file",
     )
     parser.add_argument(
-        "--ckpt_path", type=str, default=None, help="Checkpoint path for the save model"
+        "--ckpt_path", type=str, default=None, help="Checkpoint path of the desired test model"
     )
     parser.add_argument("--random_seed", type=int, default=23, help="Random seed")
-    parser.add_argument(
-        "--train_pct", type=float, default=1.0, help="Percent of training data"
-    )
-    parser.add_argument(
-        "--splits",
-        type=int,
-        default=1,
-        help="Train on n number of splits used for training. Defaults to 1",
-    )
     parser = Trainer.add_argparse_args(parser)
 
     return parser
 
 
 def main(cfg, args):
-    my_phase = cfg.my_phase
     # get datamodule
     dm = LIMITR.builder.build_data_module(cfg)
 
@@ -102,14 +92,11 @@ def main(cfg, args):
         model.lr = new_lr
         print("=" * 80 + f"\nLearning rate updated to {new_lr}\n" + "=" * 80)
 
-    if my_phase == 'train':
+    if args.train:
         trainer.fit(model, dm)
-    if my_phase == 'test':
-        ckpt = '/home/gefen/Documents/gloria-main/data/ckpt/frontal_extlosscapimg_0.05localint_masknorm_txt_SAFimg_1.0/2023_03_07_17_32_36/epoch=16-step=72793.ckpt'
+    if args.test:
+        ckpt = args.ckpt_path
         model = model.load_from_checkpoint(ckpt, strict=False)
-        # ckpt_path = (
-        #     checkpoint_callback.best_model_path if args.train else cfg.model.checkpoint
-        # )
         trainer.test(model=model, datamodule=dm)
 
     # save top weights paths to yaml
@@ -127,43 +114,30 @@ if __name__ == "__main__":
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
 
-    # edit experiment name
-    cfg.data.frac = args.train_pct
-    if cfg.trial_name is not None:
-        cfg.experiment_name = f"{cfg.experiment_name}_{cfg.trial_name}"
-    if args.splits is not None:
-        cfg.experiment_name = f"{cfg.experiment_name}_{args.train_pct}"  # indicate % data used in trial name
-
     # loop over the number of independent training splits, defaults to 1 split
-    for split in np.arange(args.splits):
+    # get current time
+    now = datetime.datetime.now(tz.tzlocal())
+    timestamp = now.strftime("%Y_%m_%d_%H_%M_%S")
 
-        # get current time
-        now = datetime.datetime.now(tz.tzlocal())
-        timestamp = now.strftime("%Y_%m_%d_%H_%M_%S")
+    # set directory names
+    cfg.extension = timestamp
+    cfg.output_dir = f"./data/output/{cfg.experiment_name}/{cfg.extension}"
+    cfg.lightning.checkpoint_callback.dirpath = os.path.join(
+        cfg.lightning.checkpoint_callback.dirpath,
+        f"{cfg.experiment_name}/{cfg.extension}",
+    )
 
-        # random seed
-        args.random_seed = split + 1
-        seed_everything(args.random_seed)
+    # create directories
+    if not os.path.exists(cfg.lightning.logger.save_dir):
+        os.makedirs(cfg.lightning.logger.save_dir)
+    if not os.path.exists(cfg.lightning.checkpoint_callback.dirpath):
+        os.makedirs(cfg.lightning.checkpoint_callback.dirpath)
+    if not os.path.exists(cfg.output_dir):
+        os.makedirs(cfg.output_dir)
 
-        # set directory names
-        cfg.extension = str(args.random_seed) if args.splits != 1 else timestamp
-        cfg.output_dir = f"./data/output/{cfg.experiment_name}/{cfg.extension}"
-        cfg.lightning.checkpoint_callback.dirpath = os.path.join(
-            cfg.lightning.checkpoint_callback.dirpath,
-            f"{cfg.experiment_name}/{cfg.extension}",
-        )
+    # save config
+    config_path = os.path.join(cfg.output_dir, "config.yaml")
+    with open(config_path, "w") as fp:
+        OmegaConf.save(config=cfg, f=fp.name)
 
-        # create directories
-        if not os.path.exists(cfg.lightning.logger.save_dir):
-            os.makedirs(cfg.lightning.logger.save_dir)
-        if not os.path.exists(cfg.lightning.checkpoint_callback.dirpath):
-            os.makedirs(cfg.lightning.checkpoint_callback.dirpath)
-        if not os.path.exists(cfg.output_dir):
-            os.makedirs(cfg.output_dir)
-
-        # save config
-        config_path = os.path.join(cfg.output_dir, "config.yaml")
-        with open(config_path, "w") as fp:
-            OmegaConf.save(config=cfg, f=fp.name)
-
-        main(cfg, args)
+    main(cfg, args)
