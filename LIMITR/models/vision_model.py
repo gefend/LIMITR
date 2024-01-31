@@ -1,10 +1,6 @@
-from numpy.lib.function_base import extract
-import torch
 import torch.nn as nn
 
 from . import cnn_backbones
-from omegaconf import OmegaConf
-
 
 
 class ImageEncoder(nn.Module):
@@ -12,7 +8,7 @@ class ImageEncoder(nn.Module):
         super(ImageEncoder, self).__init__()
 
         self.output_dim = cfg.model.text.embedding_dim
-        
+        self.cfg = cfg
         model_function = getattr(cnn_backbones, cfg.model.vision.model_name)
         self.model, self.feature_dim, self.interm_feature_dim = model_function(
             pretrained=cfg.model.vision.pretrained
@@ -37,11 +33,8 @@ class ImageEncoder(nn.Module):
 
     def forward(self, x, get_local=False):
         # --> fixed-size input: batch x 3 x 299 x 299
-        if "resnet" or "resnext" in self.cfg.model.vision.model_name:
+        if "resnet" in self.cfg.model.vision.model_name:
             global_ft, local_ft = self.resnet_forward(x, extract_features=True)
-        elif "densenet" in self.cfg.model.vision.model_name:
-            global_ft, local_ft = self.dense_forward(x, extract_features=True)
-
         if get_local:
             return global_ft, local_ft
         else:
@@ -75,48 +68,7 @@ class ImageEncoder(nn.Module):
 
         return x, local_features
 
-    def densenet_forward(self, x, extract_features=False):
-        pass
-
     def init_trainable_weights(self):
         initrange = 0.1
         self.emb_features.weight.data.uniform_(-initrange, initrange)
         self.emb_cnn_code.weight.data.uniform_(-initrange, initrange)
-
-
-class PretrainedImageClassifier(nn.Module):
-    def __init__(
-        self,
-        image_encoder: nn.Module,
-        num_cls: int,
-        feature_dim: int,
-        freeze_encoder: bool = True,
-    ):
-        super(PretrainedImageClassifier, self).__init__()
-        self.img_encoder = image_encoder
-        self.classifier = nn.Linear(feature_dim, num_cls)
-        if freeze_encoder:
-            for param in self.img_encoder.parameters():
-                param.requires_grad = False
-
-    def forward(self, x):
-        x = self.img_encoder(x)
-        pred = self.classifier(x)
-        return pred
-
-
-class ImageClassifier(nn.Module):
-    def __init__(self, cfg, image_encoder=None):
-        super(ImageClassifier, self).__init__()
-
-        model_function = getattr(cnn_backbones, cfg.model.vision.model_name)
-        self.img_encoder, self.feature_dim, _ = model_function(
-            pretrained=cfg.model.vision.pretrained
-        )
-
-        self.classifier = nn.Linear(self.feature_dim, cfg.model.vision.num_targets)
-
-    def forward(self, x):
-        x = self.img_encoder(x)
-        pred = self.classifier(x)
-        return pred
