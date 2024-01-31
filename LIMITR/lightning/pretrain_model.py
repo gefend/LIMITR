@@ -5,7 +5,7 @@ from .. import builder
 import numpy as np
 import sys
 from .. import loss
-from .. import utils
+
 
 from pytorch_lightning.core import LightningModule
 from torch.autograd import Variable

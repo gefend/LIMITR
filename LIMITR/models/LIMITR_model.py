@@ -9,7 +9,6 @@ import torchvision.transforms as transforms
 from PIL import Image
 from .. import builder
 from .. import loss
-from .. import utils
 from transformers import AutoTokenizer,BertTokenizer
 from nltk.tokenize import RegexpTokenizer
 import torch.nn.functional as F
