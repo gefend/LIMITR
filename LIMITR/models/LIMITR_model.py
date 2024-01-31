@@ -34,7 +34,6 @@ class LIMITR(nn.Module):
 
         if cfg.model.limitr.local_int_loss_weight > 0:
             self.local_int_loss = loss.LIMITR_loss.local_int_loss
-
         self.local_ext_loss_weight = self.cfg.model.limitr.local_ext_loss_weight
         self.global_loss_weight = self.cfg.model.limitr.global_loss_weight
 
