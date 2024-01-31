@@ -3,11 +3,10 @@ import torch
 import LIMITR
 import datetime
 import os
-import numpy as np
+
 
 from dateutil import tz
 from omegaconf import OmegaConf
-from pytorch_lightning import seed_everything
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.trainer import Trainer
 from pytorch_lightning.callbacks import (
