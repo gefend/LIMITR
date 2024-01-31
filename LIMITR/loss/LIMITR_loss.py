@@ -30,26 +30,15 @@ def attention_fn(query, context, temp1,context_img,use_mask,mask):
         mask: batch_size x sourceL
         """
         if context_img:
-
-            # ih, iw = context.size(2), context.size(3)
             sourceL = context.size(2)
             contextT = torch.transpose(context, 1, 2).contiguous()
             query = torch.transpose(query, 1, 2).contiguous()
             batch_size, queryL = query.size(0), query.size(2)
-            # context = context.view(batch_size, -1, sourceL)
         else:
             batch_size = query.size(0)
-            # ih, iw = query.size(2), query.size(3)
-            #sourceL = query.size(2)
-            # query = query.view(batch_size,-1,sourceL)
             sourceL = context.size(1)
             queryL = query.size(2)
             contextT = context
-
-        # --> batch x sourceL x ndf
-        #context = context.view(batch_size, -1, sourceL)
-
-
 
         # -->batch x sourceL x queryL
         attn = torch.bmm(contextT, query)
@@ -67,9 +56,6 @@ def attention_fn(query, context, temp1,context_img,use_mask,mask):
         attn = attn * temp1
         if use_mask:
             patch_num = queryL
-            #mask = torch.transpose(mask, 0, 1).contiguous()
-            # attn[mask.unsqueeze(2).repeat(
-            #     1,1,patch_num)] = float("-inf")
             attn[mask.repeat(patch_num,1)]=float("-inf")
         attn = nn.Softmax(dim=-1)(attn)
         attn = attn.view(batch_size, queryL, sourceL)
@@ -85,47 +71,6 @@ def attention_fn(query, context, temp1,context_img,use_mask,mask):
             weightedContext = torch.bmm(contextT, attnT)
 
         return weightedContext, attn
-
-# def attention_fn(query, context, temp1):
-#     """
-#     query: batch x ndf x queryL
-#     context: batch x ndf x ih x iw (sourceL=ihxiw)
-#     mask: batch_size x sourceL
-#     """
-#     batch_size, queryL = query.size(0), query.size(2)
-#     ih, iw = context.size(2), context.size(3)
-#     sourceL = ih * iw
-#
-#     # --> batch x sourceL x ndf
-#     context = context.view(batch_size, -1, sourceL)
-#     contextT = torch.transpose(context, 1, 2).contiguous()
-#
-#     # Get attention
-#     # (batch x sourceL x ndf)(batch x ndf x queryL)
-#     # -->batch x sourceL x queryL
-#     attn = torch.bmm(contextT, query)
-#     # --> batch*sourceL x queryL
-#     attn = attn.view(batch_size * sourceL, queryL)
-#     attn = nn.Softmax(dim=-1)(attn)
-#
-#     # --> batch x sourceL x queryL
-#     attn = attn.view(batch_size, sourceL, queryL)
-#     # --> batch*queryL x sourceL
-#     attn = torch.transpose(attn, 1, 2).contiguous()
-#     attn = attn.view(batch_size * queryL, sourceL)
-#
-#     attn = attn * temp1
-#     attn = nn.Softmax(dim=-1)(attn)
-#     attn = attn.view(batch_size, queryL, sourceL)
-#     # --> batch x sourceL x queryL
-#     attnT = torch.transpose(attn, 1, 2).contiguous()
-#
-#     # (batch x ndf x sourceL)(batch x sourceL x queryL)
-#     # --> batch x ndf x queryL
-#     weightedContext = torch.bmm(context, attnT)
-#
-#     return weightedContext, attn.view(batch_size, -1, ih, iw)
-
 
 def global_loss(cnn_code, rnn_code, eps=1e-8, temp3=10.0):
 
@@ -149,185 +94,38 @@ def global_loss(cnn_code, rnn_code, eps=1e-8, temp3=10.0):
     scores1 = scores0.transpose(0, 1)
     loss0 = nn.CrossEntropyLoss()(scores0, labels)
     loss1 = nn.CrossEntropyLoss()(scores1, labels)
-    return loss0, loss1,scores0/temp3
+    return loss0, loss1, scores0/temp3
 
-#TODO-img_attn
-def local_loss(
+def local_ext_loss(
     similarities_cap,similarities_img, cfg, temp3=10.0, agg="sum"
 ):
-# def local_loss(
-#         similarities_cap, temp3=10.0, agg="sum"):
-    #
-    # batch_size = img_features.shape[0]
-    #
-    # att_maps = []
-    # similarities = []
-    # # cap_lens = cap_lens.data.tolist()
-    # for i in range(words_emb.shape[0]):
-    #
-    #     # Get the i-th text description
-    #     words_num = cap_lens[i]  # 25
-    #     # TODO: remove [SEP]
-    #     # word = words_emb[i, :, 1:words_num+1].unsqueeze(0).contiguous()    # [1, 768, 25]
-    #     word = words_emb[i, :, :words_num].unsqueeze(0).contiguous()  # [1, 768, 25]
-    #     word = word.repeat(batch_size, 1, 1)  # [48, 768, 25]
-    #     context = img_features  # [48, 768, 19, 19]
-    #
-    #     weiContext, attn = attention_fn(
-    #         word, context, temp1
-    #     )  # [48, 768, 25], [48, 25, 19, 19]
-    #
-    #     att_maps.append(
-    #         attn[i].unsqueeze(0).contiguous()
-    #     )  # add attention for curr index  [25, 19, 19]
-    #     word = word.transpose(1, 2).contiguous()  # [48, 25, 768]
-    #     weiContext = weiContext.transpose(1, 2).contiguous()  # [48, 25, 768]
-    #
-    #     sim_loc = torch.mul(weiContext, word)
-    #     sim_loc = l2norm(sim_loc, dim=-1)
-    #     sim_ave = torch.mean(sim_loc, 1)
-    #     sim_vec_cap, sim_weights_cap = self.SAF_module(sim_loc, sim_ave)
-    #     sim_i = self.sigmoid(self.sim_eval_w_cap(sim_vec_cap))
-    #     similarities.append(sim_i)
-    #     #TODO- gloria
-    #
-    #     # word = word.view(batch_size * words_num, -1)  # [1200, 768]
-    #     # weiContext = weiContext.view(batch_size * words_num, -1)  # [1200, 768]
-    #     # row_sim = cosine_similarity(word, weiContext)
-    #     # row_sim = row_sim.view(batch_size, words_num)  # [48, 25]
-    #     #
-    #     # row_sim.mul_(temp2).exp_()
-    #     # if agg == "sum":
-    #     #     row_sim = row_sim.sum(dim=1, keepdim=True)  # [48, 1]
-    #     # else:
-    #     #     row_sim = row_sim.mean(dim=1, keepdim=True)  # [48, 1]
-    #     # row_sim = torch.log(row_sim)
-    #     #
-    #     # similarities.append(row_sim)
-    #     #TODO-gloria
-    #
-    # similarities = torch.cat(similarities, 1)  #
     if cfg.model.limitr.cap_attn:
         batch_size = similarities_cap.shape[0]
         similarities_cap = similarities_cap * temp3
-        similarities1_cap = similarities_cap.transpose(0, 1)  # [48, 48]
+        similarities1_cap = similarities_cap.transpose(0, 1)
 
         labels = Variable(torch.LongTensor(range(batch_size))).to(similarities_cap.device)
 
-        loss0_cap = nn.CrossEntropyLoss()(similarities_cap, labels)  # labels: arange(batch_size)
+        loss0_cap = nn.CrossEntropyLoss()(similarities_cap, labels)
         loss1_cap = nn.CrossEntropyLoss()(similarities1_cap, labels)
     else:
         loss0_cap = 0
         loss1_cap = 0
-    #TODO- local img attn
+
     if cfg.model.limitr.img_attn:
         batch_size = similarities_img.shape[0]
         similarities_img = similarities_img * temp3
-        similarities1_img = similarities_img.transpose(0, 1)  # [48, 48]
+        similarities1_img = similarities_img.transpose(0, 1)
 
         labels = Variable(torch.LongTensor(range(batch_size))).to(similarities_img.device)
 
-        loss0_img = nn.CrossEntropyLoss()(similarities_img, labels)  # labels: arange(batch_size)
+        loss0_img = nn.CrossEntropyLoss()(similarities_img, labels)
         loss1_img = nn.CrossEntropyLoss()(similarities1_img, labels)
     else:
         loss0_img = 0
         loss1_img = 0
     return loss0_cap, loss1_cap,loss0_img, loss1_img
-    #return loss0_cap, loss1_cap
 
-# def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,sim_w_cap,sim_w_img,cfg,local_temperature = 0.1):
-#     #TODO add lateral
-#     mask = torch.from_numpy(np.array(sents)[:, :] == "[PAD]").type_as(
-#             img_emb_l_f).bool()
-#     ih, iw = img_emb_l_f.size(2), img_emb_l_f.size(3)
-#     sourceL = ih * iw
-#     img_emb_l_f = img_emb_l_f.view(img_emb_l_f.size(0), -1, sourceL)
-#     bz = img_emb_l_f.size(0)
-#
-#     if cfg.model.limitr.int_w_method == 'uniform':
-#         cap_weights = torch.ones(bz, text_emb_l.size(1)).type_as(text_emb_l)/text_emb_l.size(1)
-#         img_weights = torch.ones(bz, img_emb_l_f.size(1)).type_as(img_emb_l_f) / img_emb_l_f.size(1)
-#         if cfg.model.limitr.lateral:
-#             img_weights_l = torch.ones(bz, img_emb_l_l.size(1)).type_as(img_emb_l_l) / img_emb_l_l.size(1)
-#     elif cfg.model.limitr.int_w_method == 'SAF':
-#         cap_weights = sim_w_cap
-#         img_weights = sim_w_img
-#     img_emb_l_f=img_emb_l_f.type_as(text_emb_l)
-#     atten_sim = torch.bmm(text_emb_l, img_emb_l_f)#.permute(0, 2, 1)
-#     #word_num = text_emb_l.size(1)
-#     # atten_sim[mask.unsqueeze(1).repeat(1, word_num, 1)] = float("-inf")
-#     atten_scores = F.softmax(atten_sim / local_temperature, dim=-1)  # bz, 196, 111
-#     word_atten_output = torch.bmm(atten_scores, img_emb_l_f.permute(0, 2, 1))
-#
-#     word_atten_output = F.normalize(word_atten_output, dim=-1)
-#
-#
-#
-#
-#     word_sim = torch.bmm(text_emb_l, word_atten_output.permute(
-#         0, 2, 1)) / local_temperature
-#     word_num = word_sim.size(1)
-#     word_sim_1 = rearrange(word_sim, "b n1 n2 -> (b n1) n2")
-#     targets = torch.arange(word_num).type_as(text_emb_l).long().repeat(bz)
-#     loss_word_1 = torch.sum(F.cross_entropy(
-#         word_sim_1, targets, reduction="none") * cap_weights.view(-1)) / bz
-#
-#     word_sim_2 = rearrange(word_sim, "b n1 n2 -> (b n2) n1")
-#     loss_word_2 = torch.sum(F.cross_entropy(
-#         word_sim_2, targets, reduction="none") * cap_weights.view(-1)) / bz
-#
-#     loss_word = (loss_word_1 + loss_word_2) / 2.
-#
-#     atten_sim = torch.bmm(img_emb_l_f, text_emb_l.permute(0, 2, 1))
-#     patch_num = img_emb_l_f.size(1)
-#     atten_sim[mask.unsqueeze(1).repeat(
-#         1, patch_num, 1)] = float("-inf")
-#     atten_scores = F.softmax(
-#         atten_sim / local_temperature, dim=-1)  # bz, 196, 111
-#     patch_atten_output = torch.bmm(atten_scores, text_emb_l)
-#     #
-#     # # patch_atten_output: bz, 196, 128
-#     patch_atten_output = F.normalize(patch_atten_output, dim=-1)
-#     patch_num = patch_atten_output.size(1)
-#     # # patch_atten_weights = torch.ones(
-#     # #     bz, patch_num).type_as(batch["imgs"]) / patch_num
-#     #
-#     patch_sim = torch.bmm(img_emb_l_f, patch_atten_output.permute(
-#         0, 2, 1)) / local_temperature
-#     patch_num = patch_sim.size(1)
-#     patch_sim_1 = rearrange(patch_sim, "b n1 n2 -> (b n1) n2")
-#     targets = torch.arange(patch_num).type_as(
-#         img_emb_l_f).long().repeat(bz)
-#     # # loss_patch_1 = F.cross_entropy(patch_sim_1, targets)
-#     loss_patch_1 = torch.sum(F.cross_entropy(
-#         patch_sim_1, targets, reduction="none") * img_weights.view(-1)) / bz
-#     #
-#     patch_sim_2 = rearrange(patch_sim, "b n1 n2 -> (b n2) n1")
-#     loss_patch_2 = torch.sum(F.cross_entropy(
-#         patch_sim_2, targets, reduction="none") * img_weights.view(-1)) / bz
-#     #
-#     loss_patch = (loss_patch_1 + loss_patch_2) / 2.
-#
-#     loss_local_int = (loss_patch + loss_word)/2
-#     #loss_local_int = loss_word
-#     # word_sim = torch.bmm(
-#     #     word_emb_q, word_atten_output.permute(0, 2, 1)) / self.hparams.local_temperature
-#
-#     # with torch.no_grad():
-#     #     atten_weights = word_attn_q.detach()
-#     #     word_atten_weights = []
-#     #     for i in range(bz):
-#     #         atten_weight = atten_weights[i]
-#     #         nonzero = atten_weight.nonzero().squeeze()
-#     #         low = torch.quantile(atten_weight[nonzero], 0.1)
-#     #         high = torch.quantile(atten_weight[nonzero], 0.9)
-#     #         atten_weight[nonzero] = atten_weight[nonzero].clip(low, high)
-#     #         word_atten_weights.append(atten_weight.clone())
-#     #     word_atten_weights = torch.stack(word_atten_weights)
-#         # TODO: maybe clip the tensor of 10 percentile and 90 percentile
-#
-#     #word_atten_weights /= word_atten_weights.sum(dim=1, keepdims=True)
-#     return loss_local_int
 
 def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local_temperature = 0.1):
     mask = torch.from_numpy(np.array(sents)[:, :] == "[PAD]").type_as(
