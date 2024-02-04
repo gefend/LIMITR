@@ -127,53 +127,39 @@ def local_ext_loss(
     return loss0_cap, loss1_cap,loss0_img, loss1_img
 
 
-def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local_temperature = 0.1):
+def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,ind_lateral,sents,cfg,SAF_module,local_temperature = 0.1):
     mask = torch.from_numpy(np.array(sents)[:, :] == "[PAD]").type_as(
                 img_emb_l_f).bool()
-    # mask_new = ~mask
-    # mask_n = mask_new.unsqueeze(axis=2)
-    # mask_n = mask_n.repeat(1, 1, 768)
-
-    # if cfg.model.limitr.int_w_method == 'SAF':
-    #     SAF_module = TextSA(cfg.model.text.embedding_dim, 0.4)
 
     bz = img_emb_l_f.size(0)
     ih, iw = img_emb_l_f.size(2), img_emb_l_f.size(3)
     sourceL = ih * iw
     img_emb_l_f = img_emb_l_f.view(img_emb_l_f.size(0), -1, sourceL)
+    if cfg.model.limitr.lateral:
+        img_emb_l_l = img_emb_l_l.view(img_emb_l_l.size(0), -1, sourceL)
+        img_emb_l = torch.zeros(img_emb_l_f.shape, dtype=img_emb_l_f.dtype).cuda()
+        img_emb_l[~ind_lateral] = img_emb_l_l
+        img_emb_l[ind_lateral] = 1e-8 * torch.ones((768, 361), dtype=img_emb_l_f.dtype).cuda()
+        img_emb = torch.cat((img_emb_l_f, img_emb_l), dim=2)
+    else:
+        img_emb = img_emb_l_f
 
     if cfg.model.limitr.int_w_method == 'uniform':
-        #cap_weights = torch.ones(bz, text_emb_l.size(1)).type_as(text_emb_l)/text_emb_l.size(1)
         cap_mask =~ mask
         y = cap_mask.sum(axis=1)
         norm_cap = cap_mask.T/y
         cap_weights = norm_cap.T
-        img_weights = torch.ones(bz, img_emb_l_f.size(2)).type_as(img_emb_l_f) / img_emb_l_f.size(2)
-        if cfg.model.limitr.lateral:
-            img_weights_l = torch.ones(bz, img_emb_l_l.size(1)).type_as(img_emb_l_l) / img_emb_l_l.size(1)
+        img_weights = torch.ones(bz, img_emb.size(2)).type_as(img_emb) / img_emb.size(2)
 
-    #cap_weights = torch.zeros(bz, text_emb_l.size(1)).type_as(text_emb_l)
-    #weiContext = torch.zeros_like(text_emb_l)
     weiContext, attn = attention_fn(
-        text_emb_l, img_emb_l_f, 4.0, context_img=True, use_mask=False, mask=0)
+        text_emb_l, img_emb, 4.0, context_img=True, use_mask=False, mask=0)
     if cfg.model.limitr.int_w_method == 'SAF':
         cap_mask = ~ mask
         y = cap_mask.sum(axis=1)
         norm_cap = cap_mask.T / y
         cap_weights = norm_cap.T
-    # for i in range(bz):
-    #     n_word = torch.nonzero(text_emb_l).shape[0]
-    #     weiContext_i = F.normalize(weiContext[i,:n_word,:], dim=-1)
-    #     if cfg.model.limitr.int_w_method == 'SAF':
 
-            # sim_loc_cap = torch.mul(weiContext_i.permute(1, 0), text_emb_l[i, :n_word, :])
-            # sim_loc_cap = l2norm(sim_loc_cap, dim=-1)
-            # sim_ave_cap = torch.mean(sim_loc_cap,axis=0)
-            # #n_word = torch.nonzero(sim_loc_cap).shape[0]
-            # _, cap_weights_tmp = SAF_module(sim_loc_cap.unsqueeze(axis=0), sim_ave_cap.unsqueeze(axis=0))
-            # cap_weights[i, :n_word] = cap_weights_tmp
-
-    word_sim = torch.bmm(text_emb_l, weiContext) / local_temperature#.permute(0, 2, 1)
+    word_sim = torch.bmm(text_emb_l, weiContext) / local_temperature
     word_num = word_sim.size(1)
     word_sim_1 = rearrange(word_sim, "b n1 n2 -> (b n1) n2")
     targets = torch.arange(word_num).type_as(text_emb_l).long().repeat(bz)
@@ -186,23 +172,21 @@ def local_int_loss(img_emb_l_l,img_emb_l_f,text_emb_l,sents,cfg,SAF_module,local
     loss_word = (loss_word_1 + loss_word_2) / 2.
 
     weiContext_img, _ = attention_fn(
-        img_emb_l_f,text_emb_l ,4.0, context_img=False,use_mask=True,mask=mask
+        img_emb,text_emb_l ,4.0, context_img=False,use_mask=True,mask=mask
     )
 
-    # if weiContext_img.shape !=  img_emb_l_f.shape:
-    #     img_emb_l_f =  img_emb_l_f.transpose(1, 2).contiguous()
     if cfg.model.limitr.int_w_method == 'SAF':
-        sim_loc_img = torch.mul(weiContext_img,  img_emb_l_f)
+        sim_loc_img = torch.mul(weiContext_img,  img_emb)
         sim_loc_img = l2norm(sim_loc_img, dim=-1)
         sim_loc_img = sim_loc_img.transpose(1, 2).contiguous()
         sim_ave_f = torch.mean(sim_loc_img, 1)
         _, img_weights = SAF_module(sim_loc_img, sim_ave_f)
 
-    patch_sim = torch.bmm(img_emb_l_f.permute(0, 2, 1), weiContext_img)/ local_temperature #
+    patch_sim = torch.bmm(img_emb.permute(0, 2, 1), weiContext_img)/ local_temperature #
     patch_num = patch_sim.size(1)
     patch_sim_1 = rearrange(patch_sim, "b n1 n2 -> (b n1) n2")
     targets = torch.arange(patch_num).type_as(
-        img_emb_l_f).long().repeat(bz)
+        img_emb).long().repeat(bz)
     # # loss_patch_1 = F.cross_entropy(patch_sim_1, targets)
     loss_patch_1 = torch.sum(F.cross_entropy(
         patch_sim_1, targets, reduction="none") * img_weights.view(-1)) / bz

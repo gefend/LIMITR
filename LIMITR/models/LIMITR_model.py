@@ -264,7 +264,7 @@ class LIMITR(nn.Module):
         l_loss1 = 0.5 * (l_loss1_cap + l_loss1_img)
 
         if self.cfg.model.limitr.local_int_loss_weight>0:
-            local_int_loss = self.local_int_loss(img_emb_l_l, img_emb_l_f, text_emb_l.permute((0, 2, 1)), sents,
+            local_int_loss = self.local_int_loss(img_emb_l_l, img_emb_l_f, text_emb_l.permute((0, 2, 1)), ind_lateral,sents,
                                                  self.cfg, self.SAF_module, local_temperature=0.1)
         else:
             local_int_loss = 0
@@ -313,7 +313,7 @@ class LIMITR(nn.Module):
 
         return img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
 
-    def posemb_sincos_2d(self,num_local_regions=361, temperature=500000, dtype=torch.float32,img_dim=256):
+    def posemb_sincos_2d(self,num_local_regions=361, temperature=10000, dtype=torch.float32,img_dim=256):
         h = np.sqrt(num_local_regions)
         dim = 768
         y, x = torch.meshgrid(torch.arange(h), torch.arange(h), indexing='ij')
