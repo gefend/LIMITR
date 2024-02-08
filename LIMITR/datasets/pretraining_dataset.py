@@ -21,8 +21,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 class MultimodalPretrainingDataset(data.Dataset):
     def __init__(self,cfg, split="train", transform=None):
         super().__init__()
-        if not os.path.exists(MIMIC_CXR_DATA_DIR):
-            raise RuntimeError(f"{MIMIC_CXR_DATA_DIR} does not exist!")
 
         self.cfg = cfg
         self.transform = transform
