@@ -42,7 +42,7 @@ python run.py -c ./configs/mimic_config.yaml --train
 Test the model with the following command:
 
 ```bash
-python run.py -c ./configs/mimic_config.yaml --train ---ckpt_path=ckpt_path
+python run.py -c ./configs/mimic_config.yaml --test ---ckpt_path=ckpt_path
 ```
 update 'ckpt_path' with the desired checkpoint for evaluation. 
 
