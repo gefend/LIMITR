@@ -24,4 +24,36 @@ To install Python requirements:
 pip install -r requirements.txt
 ```
 
+## Data
 
+1. Download MIMIC-CXR dataset [MIMIC-CXR](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)
+2. Update the path to MIMIC directory (DATA_BASE_DIR) on './LIMITR/constants.py'
+3. The splits we used for evaluation and training are available on './mimic_csv' directory
+
+## Training 
+Update the desired training oonfiguration on './configs/mimic_config.yaml'
+
+Train the model with the following command:
+
+```bash
+python run.py -c ./configs/mimic_config.yaml --train
+```
+
+Test the model with the following command:
+
+```bash
+python run.py -c ./configs/mimic_config.yaml --train ---ckpt_path=ckpt_path
+```
+update 'ckpt_path' with the desired checkpoint for evaluation. 
+
+## Citation
+```
+@InProceedings{Dawidowicz_2023_ICCV,
+    author    = {Dawidowicz, Gefen and Hirsch, Elad and Tal, Ayellet},
+    title     = {LIMITR: Leveraging Local Information for Medical Image-Text Representation},
+    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+    month     = {October},
+    year      = {2023},
+    pages     = {21165-21173}
+}
+```
