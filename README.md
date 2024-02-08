@@ -26,12 +26,12 @@ pip install -r requirements.txt
 
 ## Data
 
-1. Download MIMIC-CXR dataset [MIMIC-CXR](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)
-2. Update the path to MIMIC directory (DATA_BASE_DIR) on './LIMITR/constants.py'
-3. The splits we used for evaluation and training are available on './mimic_csv' directory
+1. Download MIMIC-CXR dataset [MIMIC-CXR](https://physionet.org/content/mimic-cxr-jpg/2.0.0/).
+2. Update the path to MIMIC directory (DATA_BASE_DIR) on `./LIMITR/constants.py`.
+3. The splits we used for evaluation and training are available on `./mimic_csv` directory.
 
 ## Training 
-Update the desired training oonfiguration on './configs/mimic_config.yaml'
+Update the desired training configuration on `./configs/mimic_config.yaml`
 
 Train the model with the following command:
 
@@ -44,7 +44,7 @@ Test the model with the following command:
 ```bash
 python run.py -c ./configs/mimic_config.yaml --test ---ckpt_path=ckpt_path
 ```
-update 'ckpt_path' with the desired checkpoint for evaluation. 
+Update `ckpt_path` with the desired checkpoint for evaluation. 
 
 ## Citation
 ```
