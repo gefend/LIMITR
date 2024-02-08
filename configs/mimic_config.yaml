@@ -76,5 +76,5 @@ train:
     scheduler: 
         name: 'plateau'
         monitor: 'r_sum'
-        inerval: 'epoch'
+        interval: 'epoch'
         frequency: 1
