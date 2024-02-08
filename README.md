@@ -27,8 +27,9 @@ pip install -r requirements.txt
 ## Data
 
 1. Download MIMIC-CXR dataset [MIMIC-CXR](https://physionet.org/content/mimic-cxr-jpg/2.0.0/).
-2. Update the path to MIMIC directory (DATA_BASE_DIR) on `./LIMITR/constants.py`.
-3. The splits we used for evaluation and training are available on `./mimic_csv` directory.
+2. Update the path to MIMIC directory (`DATA_BASE_DIR`) on `./LIMITR/constants.py`.
+3. Extract the file `mimic_csv.tar.gz` into a `mimic_csv` directory.
+4. The splits we used for evaluation and training are available on the `./mimic_csv` directory.
 
 ## Training 
 Update the desired training configuration on `./configs/mimic_config.yaml`
