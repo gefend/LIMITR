@@ -26,13 +26,16 @@ class MultimodalPretrainingDataset(data.Dataset):
         self.transform = transform
         self.max_words = self.cfg.data.text.word_num
         self.imsize = self.cfg.data.image.imsize
-
-        if split == 'test':
-            self.df = pd.read_csv(MIMIC_CXR_TEST_CSV)
-        elif split == 'train':
-            self.df = pd.read_csv(MIMIC_CXR_TRAIN_CSV)
-        elif split == 'valid':
-            self.df = pd.read_csv(MIMIC_CXR_VALID_CSV)
+        if cfg.data.data_type == 'evaldata' :
+            self.df = pd.read_csv(self.cfg.evaldata.evaldata_csv_path)
+            self.df = self.df.reset_index()
+        else:
+            if split == 'test':
+                self.df = pd.read_csv(MIMIC_CXR_TEST_CSV)
+            elif split == 'train':
+                self.df = pd.read_csv(MIMIC_CXR_TRAIN_CSV)
+            elif split == 'valid':
+                self.df = pd.read_csv(MIMIC_CXR_VALID_CSV)
 
         self.filenames, self.path2sent,self.pathF2pathL = self.load_text_data(split)
 
@@ -42,49 +45,68 @@ class MultimodalPretrainingDataset(data.Dataset):
 
     def load_text_data(self, split):
         # get study to captions mapping
-        if split == 'test':
+        if self.cfg.data.data_type =="evaldata":
+            #TODO change to output
             filepath = os.path.join(
-                BASE_DIR, "../../data/captions_test.pickle")
-            filepath_FL = os.path.join(
-                BASE_DIR, "../../data/FL_test.pickle")
-        elif split == 'train':
-            filepath = os.path.join(
-                BASE_DIR, "../../data/captions.pickle")
-            filepath_FL = os.path.join(
-                BASE_DIR, "../../data/FL_train.pickle")
-        elif split == 'valid':
-            filepath = os.path.join(
-                BASE_DIR, "../../data/captions_valid.pickle")
-            filepath_FL = os.path.join(
-                BASE_DIR, "../../data/FL_valid.pickle")
+                BASE_DIR, "../../data/captions_test_%s.pickle" % self.cfg.evaldata.evaldata_report)
+            # filter studies to use for current split
+            filenames = []
+            for row in self.df.itertuples():
+                path = getattr(row, MIMIC_CXR_PATH_COL_F)
+                filenames.append(path)
 
-        if not os.path.isfile(filepath_FL):
-            print(
-                f"Caption file {filepath_FL} does not exit. Creating captions...")
-            path2sent, pathF2pathL = self.create_path_2_sent_mapping()
-            with open(filepath_FL, "wb") as f:
-                pickle.dump(pathF2pathL, f, protocol=2)
-                print("Save to: ", filepath_FL)
+            pathF2pathL = []
         else:
-            with open(filepath_FL, "rb") as f:
-                pathF2pathL = pickle.load(f)
+            if split == 'test':
+                filepath = os.path.join(
+                    BASE_DIR, "../../data/captions_test.pickle")
+                filepath_FL = os.path.join(
+                    BASE_DIR, "../../data/FL_test.pickle")
+            elif split == 'train':
+                filepath = os.path.join(
+                    BASE_DIR, "../../data/captions.pickle")
+                filepath_FL = os.path.join(
+                    BASE_DIR, "../../data/FL_train.pickle")
+            elif split == 'valid':
+                filepath = os.path.join(
+                    BASE_DIR, "../../data/captions_valid.pickle")
+                filepath_FL = os.path.join(
+                    BASE_DIR, "../../data/FL_valid.pickle")
 
-        # filter studies to use for current split
-        filenames = []
-        for row in self.df.itertuples():
-            path = getattr(row, MIMIC_CXR_PATH_COL_F)
-            filenames.append(path)
+            if not os.path.isfile(filepath_FL):
+                print(
+                    f"Caption file {filepath_FL} does not exit. Creating captions...")
+                path2sent, pathF2pathL = self.create_path_2_sent_mapping()
+                with open(filepath_FL, "wb") as f:
+                    pickle.dump(pathF2pathL, f, protocol=2)
+                    print("Save to: ", filepath_FL)
+            else:
+                with open(filepath_FL, "rb") as f:
+                    pathF2pathL = pickle.load(f)
 
-        if not os.path.isfile(filepath):
+            # filter studies to use for current split
+            filenames = []
+            for row in self.df.itertuples():
+                path = getattr(row, MIMIC_CXR_PATH_COL_F)
+                filenames.append(path)
+        if self.cfg.data.data_type == "evaldata":
             print(
-                f"Caption file {filepath} does not exit. Creating captions...")
+                f" Creating captions...")
             path2sent, pathF2pathL = self.create_path_2_sent_mapping()
             with open(filepath, "wb") as f:
                 pickle.dump(path2sent, f, protocol=2)
                 print("Save to: ", filepath)
         else:
-            with open(filepath, "rb") as f:
-                path2sent = pickle.load(f)
+            if not os.path.isfile(filepath):
+                print(
+                    f"Caption file {filepath} does not exit. Creating captions...")
+                path2sent, pathF2pathL = self.create_path_2_sent_mapping()
+                with open(filepath, "wb") as f:
+                    pickle.dump(path2sent, f, protocol=2)
+                    print("Save to: ", filepath)
+            else:
+                with open(filepath, "rb") as f:
+                    path2sent = pickle.load(f)
 
         return filenames, path2sent, pathF2pathL
 
@@ -93,7 +115,10 @@ class MultimodalPretrainingDataset(data.Dataset):
         path2sent = {}
         pathF2pathL = {}
         for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0]):
-            captions = row[MIMIC_CXR_REPORT_COL]
+            if self.cfg.data.data_type =="evaldata":
+                captions = row[self.cfg.evaldata.evaldata_report]
+            else:
+                captions = row[MIMIC_CXR_REPORT_COL]
             # use space instead of newline
             captions = captions.replace("\n", " ")
             # split sentences
@@ -124,9 +149,13 @@ class MultimodalPretrainingDataset(data.Dataset):
                     study_sent.append(" ".join(included_tokens))
 
                 cnt += len(included_tokens)
-
-            path2sent[row[MIMIC_CXR_PATH_COL_F]] = study_sent
-            pathF2pathL[row[MIMIC_CXR_PATH_COL_F]] = row[MIMIC_CXR_PATH_COL_L]
+            if self.cfg.data.data_type == "evaldata":
+                path2sent[row['index']] = study_sent
+                #path2sent[row['Unnamed: 0']] = study_sent
+                pathF2pathL = []
+            else:
+                path2sent[row[MIMIC_CXR_PATH_COL_F]] = study_sent
+                pathF2pathL[row[MIMIC_CXR_PATH_COL_F]] = row[MIMIC_CXR_PATH_COL_L]
 
         return path2sent, pathF2pathL
 
@@ -155,8 +184,12 @@ class MultimodalPretrainingDataset(data.Dataset):
         return tokens, x_len
 
     def get_imgs(self, img_path, scale, transform=None):
-        my_path = DATA_BASE_DIR
-        joined_path = os.path.join(my_path, img_path.strip("/"))
+        if self.cfg.data.data_type =="evaldata":
+            my_path = DATA_BASE_DIR
+            joined_path = os.path.join(my_path, img_path)
+        else:
+            my_path = DATA_BASE_DIR
+            joined_path = os.path.join(my_path, img_path)
         x = cv2.imread(str(joined_path), 0)
         # tranform images
         x = self.resize_img(x, scale)
@@ -215,8 +248,14 @@ class MultimodalPretrainingDataset(data.Dataset):
 
     def __getitem__(self, index):
         key = self.filenames[index]
-        pathL = self.pathF2pathL[key]
-        caps, cap_len = self.get_caption(key)
+        if self.cfg.data.data_type =="evaldata":
+            pathL = torch.nan
+        else:
+            pathL = self.pathF2pathL[key]
+        if self.cfg.data.data_type == "evaldata":
+            caps, cap_len = self.get_caption(index)
+        else:
+            caps, cap_len = self.get_caption(key)
         imgs_F = self.get_imgs(key, self.imsize, self.transform)
         if pathL != pathL:
             imgs_L = torch.zeros((3, 224, 224))
@@ -247,8 +286,12 @@ def multimodal_collate_fn(batch):
     attention = torch.stack(attention).squeeze()
 
     # sort and add to dictionary
-    sorted_cap_lens, sorted_cap_indices = torch.sort(
-        torch.tensor(cap_len), 0, True)
+    # sorted_cap_lens, sorted_cap_indices = torch.sort(
+    #     torch.tensor(cap_len), 0, True)
+    #TODO without sorting
+    sorted_cap_lens = torch.tensor(cap_len)
+    sorted_cap_indices= torch.range(0,len(cap_len)-1,dtype=torch.int64)
+    path = np.array(path)
 
     path = np.array(path)
 

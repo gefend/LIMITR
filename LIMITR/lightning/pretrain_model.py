@@ -1,3 +1,4 @@
+import os
 import torch
 
 from PIL import Image
@@ -31,7 +32,7 @@ class PretrainModel(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        scores,loss = self.shard_attn_scores(batch)
+        scores,loss = self.shard_attn_scores(batch,batch_idx)
         r, _ = self.i2t(scores, return_ranks=True)
         ri, _ = self.t2i(scores, return_ranks=True)
         r_sum = r[0] + r[1] + r[2] + ri[0] + ri[1] + ri[2]
@@ -52,7 +53,9 @@ class PretrainModel(LightningModule):
         return loss
 
     def test_step(self, batch, batch_idx):
-        scores,loss = self.shard_attn_scores(batch)
+        scores,loss = self.shard_attn_scores(batch,batch_idx, save_features=self.cfg.evaldata.save_features)
+        if self.cfg.evaldata.save_similarities:
+            np.save(os.path.join(self.cfg.evaldata.features_base_dir, self.cfg.evaldata.feature_folder, 'sims_%s_%s.npy' % (self.cfg.evaldata.evaldata_report, batch_idx)), scores)
         r, _ = self.i2t(scores, return_ranks=True)
         ri, _ = self.t2i(scores, return_ranks=True)
         r_sum = r[0] + r[1] + r[2] + ri[0] + ri[1] + ri[2]
@@ -72,7 +75,7 @@ class PretrainModel(LightningModule):
                  on_epoch=True)
         return r_sum
 
-    def shard_attn_scores(self,batch, shard_size=100):
+    def shard_attn_scores(self,batch,batch_idx,save_features=False, shard_size=300):#original 100
         n_examples = len(batch['imgs_F'])
         n_im_shard = (n_examples - 1) // shard_size + 1
         n_cap_shard = (n_examples - 1) // shard_size + 1
@@ -97,6 +100,12 @@ class PretrainModel(LightningModule):
                     loss, _,_,_, sim,_,_,attn_maps = self.limitr.calc_loss(
                         img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
                     )
+                    if save_features:
+                        save_dir = os.path.join(self.cfg.evaldata.features_base_dir, self.cfg.evaldata.feature_folder)
+                        if i == 0:
+                            np.save(os.path.join(save_dir, 'text_emb_%s_%s_b%s.npy' % (j, self.cfg.evaldata.evaldata_report, batch_idx)), text_emb_g.cpu())
+                        if j == 0:
+                            np.save(os.path.join(save_dir, 'img_emb_%s_%s_b%s.npy' % (i, self.cfg.evaldata.evaldata_report, batch_idx)), img_emb_g.cpu())
 
                 sims[im_start:im_end, ca_start:ca_end] = sim.data.cpu().numpy()
                 total_loss += loss
@@ -125,7 +134,8 @@ class PretrainModel(LightningModule):
             ranks[index] = tmp
             top1[index] = inds[0]
             top5[index] = inds[0:5]
-            top10[index] = inds[0:10]
+            if len(inds)>10:
+                top10[index] = inds[0:10]
 
         # Compute metrics
         r1 = 100.0 * len(np.where(ranks < 1)[0]) / len(ranks)
@@ -162,7 +172,8 @@ class PretrainModel(LightningModule):
             ranks[index] = np.where(inds == index)[0][0]
             top1[index] = inds[0]
             top5[index] = inds[0:5]
-            top10[index] = inds[0:10]
+            if len(inds)>10:
+                top10[index] = inds[0:10]
 
         # Compute metrics
         r1 = 100.0 * len(np.where(ranks < 1)[0]) / len(ranks)

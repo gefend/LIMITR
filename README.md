@@ -30,6 +30,15 @@ pip install -r requirements.txt
 2. Update the path to MIMIC directory (DATA_BASE_DIR) on `./LIMITR/constants.py`.
 3. The splits we used for evaluation and training are available on `./mimic_csv` directory.
 
+## Pretrained Weights
+
+The pretrained model checkpoint and its corresponding config are available on Hugging Face:
+
+| File | Description | Link |
+|------|-------------|------|
+| `epoch=8-step=44963.ckpt` | Pretrained model checkpoint (frontal, global + local-ext) | [Download](https://huggingface.co/Gefenda/LIMITR/resolve/main/epoch%3D8-step%3D44963.ckpt) |
+| `config.yaml` | Corresponding training config | [Download](https://huggingface.co/Gefenda/LIMITR/resolve/main/config.yaml) |
+
 ## Training 
 Update the desired training configuration on `./configs/mimic_config.yaml`
 
@@ -42,9 +51,46 @@ python run.py -c ./configs/mimic_config.yaml --train
 Test the model with the following command:
 
 ```bash
-python run.py -c ./configs/mimic_config.yaml --test ---ckpt_path=ckpt_path
+python run.py -c ./configs/mimic_config.yaml --test --ckpt_path=ckpt_path
 ```
-Update `ckpt_path` with the desired checkpoint for evaluation. 
+Update `ckpt_path` with the desired checkpoint for evaluation.
+
+## Feature Extraction
+
+LIMITR can extract and save global image and text (report) embeddings for an evaluation dataset using the `extract_features.sh` script.
+
+### Input CSV Format
+
+The input CSV must contain the following columns:
+
+| Column | Description |
+|--------|-------------|
+| `Path_frontal` | Relative path to the frontal CXR image (relative to `DATA_BASE_DIR` in `constants.py`) |
+| `gt` | Ground-truth radiology report text |
+| `output` | Generated/predicted report text |
+
+
+### Running Feature Extraction
+
+The script runs extraction for both `gt` and `output` reports and then merges the per-batch files into final embedding files:
+
+```bash
+bash extract_features.sh \
+  --ckpt_path /path/to/epoch=8-step=44963.ckpt \
+  --features_base_dir /path/to/output/dir \
+  --feature_folder my_features \
+  --evaldata_csv_path /path/to/evaldata.csv
+```
+
+### Output Files
+
+The following merged files are saved to `features_base_dir/feature_folder/`:
+
+| File | Description |
+|------|-------------|
+| `gt_emb.npy` | Global text embeddings for ground-truth reports |
+| `output_emb.npy` | Global text embeddings for generated reports |
+| `img_emb.npy` | Global image embeddings |
 
 ## Citation
 ```
