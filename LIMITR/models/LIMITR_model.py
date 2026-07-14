@@ -285,6 +285,11 @@ class LIMITR(nn.Module):
             local_ext_loss = (l_loss0 + l_loss1)
             loss += local_ext_loss * self.cfg.model.limitr.local_ext_loss_weight
             loss += local_int_loss* self.cfg.model.limitr.local_int_loss_weight
+        else:
+            sim_loc = torch.zeros(len(sents),len(sents)).cuda()
+            local_ext_loss = 0
+            local_int_loss = 0
+            attn_maps = 0
 
 
         if self.cfg.model.limitr.global_loss_weight>0:
@@ -310,7 +315,11 @@ class LIMITR(nn.Module):
         text_emb_l, text_emb_g, sents = self.text_encoder_forward(
             x["caption_ids"], x["attention_mask"], x["token_type_ids"]
         )
-
+        #TODO normalization addition
+        # img_emb_g = F.normalize(img_emb_g, dim=1)
+        # text_emb_g = F.normalize(text_emb_g, dim=1)
+        # img_emb_l_f = F.normalize(img_emb_l_f, dim=1)
+        # text_emb_l = F.normalize(text_emb_l, dim=1)
         return img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
 
     def posemb_sincos_2d(self,num_local_regions=361, temperature=10000, dtype=torch.float32,img_dim=256):

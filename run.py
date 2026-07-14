@@ -3,6 +3,7 @@ import torch
 import LIMITR
 import datetime
 import os
+import time
 
 
 from dateutil import tz
@@ -41,10 +42,42 @@ def get_parser():
     parser.add_argument(
         "--ckpt_path", type=str, default=None, help="Checkpoint path of the desired test model"
     )
+    parser.add_argument(
+        "--save_features",
+        action="store_true",
+        default=False,
+        help="save features for both image and text"
+    )
+    parser.add_argument(
+        "--save_similarities",
+        action="store_true",
+        default=False,
+        help="save image-text similarities"
+    )
+    parser.add_argument(
+        "--feature_folder", type=str, default=None, help="folder name to save features")
+    parser.add_argument(
+        "--features_base_dir", type=str, default=None, help="base directory path to save features")
+    parser.add_argument(
+        "--evaldata_csv_path", type=str, default=None, help="evaldata csv path")
+    parser.add_argument(
+        "--evaldata_report", type=str, default=None, help="output/gt")
+    parser.add_argument(
+        "--data_type", type=str, default=None,
+        help="override data.data_type from config (e.g. 'evaldata' or 'mimic')")
     parser.add_argument("--random_seed", type=int, default=23, help="Random seed")
     parser = Trainer.add_argparse_args(parser)
 
     return parser
+
+def hparams_path(ckpt):
+    # extract config path
+    components = ckpt.split(os.path.sep)
+    index = components.index('ckpt')
+    components[index] = 'output'
+    components[-1] = 'config.yaml'
+    hparams_file = '/' + os.path.join(*components)
+    return hparams_file
 
 
 def main(cfg, args):
@@ -95,8 +128,23 @@ def main(cfg, args):
         trainer.fit(model, dm)
     if args.test:
         ckpt = args.ckpt_path
-        model = model.load_from_checkpoint(ckpt, strict=False)
+        hparams_file = hparams_path(ckpt)
+        model = model.load_from_checkpoint(ckpt, strict=False,hparams_file=hparams_file)
+        if args.data_type is not None:
+            model.cfg.data.data_type = args.data_type
+        # save feature extraction arguments
+        model.cfg['evaldata'] = {}
+        model.cfg['evaldata']['save_features'] = args.save_features
+        model.cfg['evaldata']['evaldata_csv_path'] = args.evaldata_csv_path
+        model.cfg['evaldata']['evaldata_report'] = args.evaldata_report
+        model.cfg['evaldata']['feature_folder'] = args.feature_folder
+        model.cfg['evaldata']['features_base_dir'] = args.features_base_dir
+        model.cfg['evaldata']['save_similarities'] = args.save_similarities
+        start_time = time.time()
         trainer.test(model=model, datamodule=dm)
+        end_time = time.time()
+        exec_time = end_time-start_time
+        print(f"Time taken: {exec_time:.4f} seconds")
 
     # save top weights paths to yaml
     if "checkpoint_callback" in cfg.lightning:
@@ -112,6 +160,15 @@ if __name__ == "__main__":
     parser = get_parser()
     args = parser.parse_args()
     cfg = OmegaConf.load(args.config)
+    if args.data_type is not None:
+        cfg.data.data_type = args.data_type
+    # save feature extraction arguments
+    cfg['evaldata'] = {}
+    cfg['evaldata']['save_features'] = args.save_features
+    cfg['evaldata']['evaldata_csv_path'] = args.evaldata_csv_path
+    cfg['evaldata']['evaldata_report'] = args.evaldata_report
+    cfg['evaldata']['feature_folder'] = args.feature_folder
+    cfg['evaldata']['features_base_dir'] = args.features_base_dir
 
     # loop over the number of independent training splits, defaults to 1 split
     # get current time
