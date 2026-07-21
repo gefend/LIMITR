@@ -97,18 +97,18 @@ class PretrainModel(LightningModule):
                         "imgs_L": batch["imgs_L"][im_start:im_end]
                     }
                     img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents = self.limitr(new_batch)
-                    loss, _,_,_, sim,_,_,attn_maps = self.limitr.calc_loss(
-                        img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
-                    )
                     if save_features:
                         save_dir = os.path.join(self.cfg.evaldata.features_base_dir, self.cfg.evaldata.feature_folder)
                         if i == 0:
                             np.save(os.path.join(save_dir, 'text_emb_%s_%s_b%s.npy' % (j, self.cfg.evaldata.evaldata_report, batch_idx)), text_emb_g.cpu())
                         if j == 0:
                             np.save(os.path.join(save_dir, 'img_emb_%s_%s_b%s.npy' % (i, self.cfg.evaldata.evaldata_report, batch_idx)), img_emb_g.cpu())
-
-                sims[im_start:im_end, ca_start:ca_end] = sim.data.cpu().numpy()
-                total_loss += loss
+                    else:
+                        loss, _,_,_, sim,_,_,attn_maps = self.limitr.calc_loss(
+                            img_emb_l_l, img_emb_l_f, ind_lateral, img_emb_g, text_emb_l, text_emb_g, sents
+                        )
+                        sims[im_start:im_end, ca_start:ca_end] = sim.data.cpu().numpy()
+                        total_loss += loss
 
         sys.stdout.write('\n')
         return sims, total_loss/shard_size

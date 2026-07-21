@@ -42,10 +42,16 @@ def merge_features(folder_path, n_batch, n_group):
     img_emb, gt_emb, output_emb = None, None, None
     for batch_idx in range(n_batch):
         for idx in range(n_group):
-            tmp_gt = np.load(os.path.join(folder_path, 'text_emb_%s_gt_b%s.npy' % (idx, batch_idx)))
-            tmp_output = np.load(os.path.join(folder_path, 'text_emb_%s_output_b%s.npy' % (idx, batch_idx)))
-            tmp_img = np.load(os.path.join(folder_path, 'img_emb_%s_gt_b%s.npy' % (idx, batch_idx)))
-            if idx == 0 and batch_idx == 0:
+            gt_path = os.path.join(folder_path, 'text_emb_%s_gt_b%s.npy' % (idx, batch_idx))
+            output_path = os.path.join(folder_path, 'text_emb_%s_output_b%s.npy' % (idx, batch_idx))
+            img_path = os.path.join(folder_path, 'img_emb_%s_gt_b%s.npy' % (idx, batch_idx))
+            # Last batch may have fewer shards than earlier ones — skip missing files
+            if not (os.path.exists(gt_path) and os.path.exists(output_path) and os.path.exists(img_path)):
+                continue
+            tmp_gt = np.load(gt_path)
+            tmp_output = np.load(output_path)
+            tmp_img = np.load(img_path)
+            if img_emb is None:
                 img_emb = tmp_img
                 gt_emb = tmp_gt
                 output_emb = tmp_output
@@ -53,13 +59,15 @@ def merge_features(folder_path, n_batch, n_group):
                 img_emb = np.concatenate((img_emb, tmp_img))
                 gt_emb = np.concatenate((gt_emb, tmp_gt))
                 output_emb = np.concatenate((output_emb, tmp_output))
-            if batch_idx == (n_batch - 1) and idx == 0:
-                break
+
+    if img_emb is None:
+        raise FileNotFoundError('No feature shards found in %s' % folder_path)
 
     np.save(os.path.join(folder_path, 'img_emb.npy'), img_emb)
     np.save(os.path.join(folder_path, 'gt_emb.npy'), gt_emb)
     np.save(os.path.join(folder_path, 'output_emb.npy'), output_emb)
-    print('Saved merged features to %s' % folder_path)
+    print('Saved merged features to %s (gt=%d, output=%d, img=%d)' % (
+        folder_path, len(gt_emb), len(output_emb), len(img_emb)))
 
 
 if __name__ == '__main__':
